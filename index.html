@@ -8,8 +8,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
     :root{
-      --bg:#0b0c10; --card:#15171d; --muted:#6c7480; --text:#e8eef5; --border:#272a33; --accent:#4f8cff;
-      --ring-bg:#0f1116;
+      --bg:#2e3440; --card:#3b4252; --muted:#9aa4b2; --text:#e5e9f0; --border:#4c566a; --accent:#88c0d0; --ring-bg:#3b4252;
     }
     *{box-sizing:border-box}
     body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; margin:0; background:var(--bg); color:var(--text)}
@@ -26,7 +25,7 @@
     textarea{width:100%}
     button{cursor:pointer; background:#111520; transition:all .15s ease; border-color:#1e2230}
     button:hover{transform:translateY(-1px)}
-    .btn-primary{background:var(--accent); border-color:transparent; color:#fff}
+    .btn-primary{background:var(--accent); border-color:transparent; color:#000; font-weight:600}
     .btn-danger{background:#6a1216; border-color:#6a1216; color:#fff}
     .pill{padding:6px 10px; border:1px solid var(--border); border-radius:999px; background:#10131b}
     .split{display:grid; grid-template-columns: 1fr 1fr; gap:12px}
@@ -56,12 +55,13 @@
 
     .hearts{font-size:26px; letter-spacing:2px}
 
-    /* Graffelt-liste */
-    #chartFields{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; max-height:140px; overflow:auto; border:1px solid var(--border); border-radius:10px; padding:8px; background:#0f1116}
-    @media (max-width:700px){#chartFields{grid-template-columns:1fr}}
-    .cf-item{display:flex; align-items:center; gap:8px; font-size:13px}
+    /* Graf – feltvalg */
+    #chartFields{display:grid; grid-template-columns:1fr; gap:6px; max-height:200px; overflow:auto; border:1px solid var(--border); border-radius:10px; padding:8px; background:#0f1116}
+    .cf-item{display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center; font-size:13px}
+    .cf-item select{min-width:160px}
+    .smallhelp{font-size:12px; color:var(--muted)}
 
-    /* Historikk tabell – mer luft + sticky header + zebra */
+    /* Historikk (luft + sticky + zebra + mobilkort) */
     .table-wrap{overflow:auto; border:1px solid var(--border); border-radius:12px}
     table{width:100%; border-collapse:separate; border-spacing:0}
     thead th{position:sticky; top:0; background:var(--card); z-index:1; border-bottom:1px solid var(--border)}
@@ -69,8 +69,6 @@
     tbody tr:nth-child(odd){background:rgba(255,255,255,0.02)}
     tbody tr:hover{background:rgba(255,255,255,0.04)}
     .cell-center{text-align:center}
-
-    /* Historikk kort (mobil) */
     @media (max-width:720px){
       .table-wrap{display:none}
       .history-cards{display:grid; gap:10px}
@@ -169,13 +167,28 @@
 
       <hr style="border:none; border-top:1px solid var(--border); margin:16px 0">
       <h2 style="margin:0 0 8px">Graf</h2>
+
       <div class="split">
         <div>
-          <label>Felt (flervalg)</label>
+          <label>Felt (kun tall)</label>
           <div id="chartFields"></div>
           <div class="row" style="margin-top:6px">
-            <button id="cfAll" class="pill">Velg alle</button>
-            <button id="cfNone" class="pill">Tøm</button>
+            <button id="cfAll100" class="pill" title="Sett alle til venstre akse (0–100)">Alle → 100</button>
+            <button id="cfAll10"  class="pill" title="Sett alle til høyre akse (0–10)">Alle → 10</button>
+            <button id="cfNone"   class="pill" title="Skjul alle serier">Skjul alle</button>
+            <button id="cfAutoNow" class="pill" title="Kjør heuristikk på nytt">Auto-map nå</button>
+          </div>
+          <div class="row" style="margin-top:6px; align-items:center">
+            <label class="row" style="gap:6px; align-items:center">
+              <input id="autoMap" type="checkbox" />
+              <span class="smallhelp">Automatisk mapping (score/% → 100, timer/min → 10)</span>
+            </label>
+          </div>
+          <div class="row" style="margin-top:2px; align-items:center">
+            <label class="row" style="gap:6px; align-items:center">
+              <input id="chartShowGoals" type="checkbox" />
+              <span class="smallhelp">Vis mål-linjer (for felt med mål)</span>
+            </label>
           </div>
         </div>
         <div>
@@ -204,8 +217,12 @@
               </select>
             </div>
           </div>
+          <div class="muted" style="margin-top:8px">
+            Venstre akse: 0–100 (f.eks. søvnscore). Høyre akse: 0–10 (f.eks. søvn i timer).
+          </div>
         </div>
       </div>
+
       <div style="margin-top:14px"><canvas id="chart" height="190"></canvas></div>
 
       <hr style="border:none; border-top:1px solid var(--border); margin:16px 0">
@@ -220,21 +237,23 @@
         <div class="item">
           <div class="muted">Tema & farger</div>
           <div class="theme-row" style="margin-top:6px">
-            <button class="preset" data-preset="dark"  title="Mørk"><span class="swatch"><i style="background:linear-gradient(90deg,#0b0c10 50%, #4f8cff 50%)"></i></span> Mørk</button>
-            <button class="preset" data-preset="light" title="Lys"><span class="swatch"><i style="background:linear-gradient(90deg,#f7f7f9 50%, #4f8cff 50%)"></i></span> Lys</button>
-            <button class="preset" data-preset="emerald" title="Emerald"><span class="swatch"><i style="background:linear-gradient(90deg,#06110f 50%, #10b981 50%)"></i></span> Emerald</button>
-            <button class="preset" data-preset="solar" title="Solar"><span class="swatch"><i style="background:linear-gradient(90deg,#0d0f10 50%, #f59e0b 50%)"></i></span> Solar</button>
+            <button class="preset" data-preset="nord"><span class="swatch"><i style="background:linear-gradient(90deg,#2e3440 50%, #88c0d0 50%)"></i></span>Nord</button>
+            <button class="preset" data-preset="dracula"><span class="swatch"><i style="background:linear-gradient(90deg,#282a36 50%, #bd93f9 50%)"></i></span>Dracula</button>
+            <button class="preset" data-preset="forest"><span class="swatch"><i style="background:linear-gradient(90deg,#0b1310 50%, #34d399 50%)"></i></span>Forest</button>
+            <button class="preset" data-preset="oceanic"><span class="swatch"><i style="background:linear-gradient(90deg,#0a0f14 50%, #22d3ee 50%)"></i></span>Oceanic</button>
+            <button class="preset" data-preset="latte"><span class="swatch"><i style="background:linear-gradient(90deg,#f5f5f3 50%, #0ea5e9 50%)"></i></span>Latte</button>
+            <button class="preset" data-preset="sunset"><span class="swatch"><i style="background:linear-gradient(90deg,#1a1110 50%, #f97316 50%)"></i></span>Sunset</button>
           </div>
           <div class="split" style="margin-top:8px">
             <div>
               <label>Bakgrunnsfarge</label>
-              <input id="bgColor" type="color" title="Endrer bakgrunn" />
-              <div class="muted">Endrer siden sin bakgrunn.</div>
+              <input id="bgColor" type="color" title="Endrer siden sin bakgrunn" />
+              <div class="muted">Bakgrunn på hele siden.</div>
             </div>
             <div>
               <label>Aksentfarge</label>
               <input id="accentColor" type="color" title="Endrer aksent (knapper/graf)" />
-              <div class="muted">Brukes på knapper og graf.</div>
+              <div class="muted">Knapper, linjer og graf.</div>
             </div>
           </div>
           <div class="preview-card" id="themePreview">
@@ -257,38 +276,62 @@
 
 <script>
   /* ---------------- State & tema ---------------- */
-  const LS_KEY = "life_tracker_v3";
+  const LS_KEY = "life_tracker_v3"; // kompatibel, men utvidet settings
   const el = (id) => document.getElementById(id);
   const todayISO = () => new Date().toLocaleDateString("sv-SE");
   const MONTHS = ["jan","feb","mar","apr","mai","jun","jul","aug","sep","okt","nov","des"];
   const prettyDate = (iso)=>{ if(!iso) return "—"; const [y,m,d]=iso.split("-").map(Number); return `${d}. ${MONTHS[(m||1)-1]}, ${y}`; };
-  const defaultSettings = ()=>({ theme:"dark", bg:"#0b0c10", accent:"#4f8cff" });
+  const defaultSettings = ()=>({
+    theme:"nord", bg:"#2e3440", accent:"#88c0d0",
+    chart:{ autoMap:true, axis:{}, showGoals:true }
+  });
 
   function loadState(){
     try{ const raw = localStorage.getItem(LS_KEY);
-      if(raw){ const s = JSON.parse(raw); s.fields ||= []; s.entries ||= {}; s.settings ||= defaultSettings(); return s; }
+      if(raw){
+        const s = JSON.parse(raw);
+        s.fields ||= []; s.entries ||= {};
+        const base = defaultSettings();
+        s.settings = {...base, ...s.settings};
+        s.settings.chart = {...base.chart, ...(s.settings.chart||{})};
+        s.settings.chart.axis ||= {};
+        return s;
+      }
     }catch{}
     const s = { fields: [], entries: {}, settings: defaultSettings() }; saveState(s); return s;
   }
   function saveState(s){ localStorage.setItem(LS_KEY, JSON.stringify(s)); }
 
   function applyTheme(settings){
-    const root=document.documentElement, t=settings.theme||"dark"; let bg=settings.bg|| (t==="light"?"#f7f7f9":"#0b0c10");
-    const accent=settings.accent||"#4f8cff";
-    if(t==="dark"){ root.style.setProperty("--bg",bg); root.style.setProperty("--card","#15171d"); root.style.setProperty("--text","#e8eef5"); root.style.setProperty("--muted","#6c7480"); root.style.setProperty("--border","#272a33"); root.style.setProperty("--ring-bg","#0f1116"); }
-    else if(t==="light"){ root.style.setProperty("--bg",bg); root.style.setProperty("--card","#ffffff"); root.style.setProperty("--text","#101317"); root.style.setProperty("--muted","#5f6b7a"); root.style.setProperty("--border","#e5e7eb"); root.style.setProperty("--ring-bg","#ffffff"); }
-    else if(t==="emerald"){ bg=settings.bg||"#06110f"; root.style.setProperty("--bg",bg); root.style.setProperty("--card","#0d1917"); root.style.setProperty("--text","#e6fff9"); root.style.setProperty("--muted","#89a39b"); root.style.setProperty("--border","#1f2b28"); root.style.setProperty("--ring-bg","#0d1917"); }
-    else if(t==="solar"){ bg=settings.bg||"#0d0f10"; root.style.setProperty("--bg",bg); root.style.setProperty("--card","#14181b"); root.style.setProperty("--text","#f2efe6"); root.style.setProperty("--muted","#c2c0b5"); root.style.setProperty("--border","#2b2f31"); root.style.setProperty("--ring-bg","#14181b"); }
+    const root=document.documentElement, t=settings.theme||"nord";
+    let bg=settings.bg||"#2e3440";
+    const accent=settings.accent||"#88c0d0";
+    const set = (bg, card, text, muted, border, ring) => {
+      root.style.setProperty("--bg",bg);
+      root.style.setProperty("--card",card);
+      root.style.setProperty("--text",text);
+      root.style.setProperty("--muted",muted);
+      root.style.setProperty("--border",border);
+      root.style.setProperty("--ring-bg",ring);
+      root.style.setProperty("--accent",accent);
+    };
+    if(t==="nord") set(bg, "#3b4252", "#e5e9f0", "#9aa4b2", "#4c566a", "#3b4252");
+    else if(t==="dracula") set(settings.bg||"#282a36", "#1e1f29", "#f8f8f2", "#8b8ea3", "#343746", "#1e1f29");
+    else if(t==="forest")  set(settings.bg||"#0b1310", "#0f1b17", "#e6fff7", "#8fb7a7", "#1b2a24", "#0f1b17");
+    else if(t==="oceanic") set(settings.bg||"#0a0f14", "#0f1620", "#eaf6ff", "#8aa9c0", "#1b2a3a", "#0f1620");
+    else if(t==="latte")   set(settings.bg||"#f5f5f3", "#ffffff", "#101317", "#6a7280", "#e6e8ec", "#ffffff");
+    else if(t==="sunset")  set(settings.bg||"#1a1110", "#241513", "#ffe9dc", "#d4b2a7", "#3a2521", "#241513");
+    else set(bg, "#15171d", "#e8eef5", "#6c7480", "#272a33", "#0f1116");
     root.style.setProperty("--accent", accent);
-    // Mini live preview tar samme variabler – ingen ekstra kode nødvendig
   }
 
   /* ---------------- Utils ---------------- */
   const escapeHtml = (s)=>String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
   const escapeAttr = (s)=>escapeHtml(s).replaceAll("\n","&#10;");
   const uid = ()=>"id_"+Math.random().toString(16).slice(2)+Date.now().toString(16);
-  const toNumber = (v)=>{ if(typeof v==="number") return v; if(typeof v==="boolean") return v?1:0; const n=Number(v); return Number.isFinite(n)?n:0; };
+  const toNumber = (v)=>{ if(typeof v==="number") return v; const n=Number(v); return Number.isFinite(n)?n:0; };
   const showToast = (msg)=>{ const node=el("status"); node.textContent=msg; node.classList.add("show"); setTimeout(()=> node.classList.remove("show"), 1200); };
+  const getTextColor=()=>getComputedStyle(document.documentElement).getPropertyValue("--text").trim() || "#fff";
 
   /* ---------------- Felter ---------------- */
   function renderFields(){
@@ -299,7 +342,13 @@
       const left=document.createElement("div");
       left.innerHTML = `<div style="font-weight:700">${escapeHtml(f.name)}</div><div class="muted" style="font-size:12px">${f.type}${f.type==="number"&&f.goal?` • mål: ${f.goal}`:""}${f.inProgress?" • i fremdrift":""}</div>`;
       const del=document.createElement("button"); del.className="btn-danger"; del.textContent="Fjern";
-      del.onclick=()=>{ const s=loadState(); const removed=s.fields.splice(idx,1)[0]; if(removed){ Object.keys(s.entries).forEach(d=>{ if(s.entries[d]) delete s.entries[d][removed.id]; }); } saveState(s); renderAll(); };
+      del.onclick=()=>{ const s=loadState(); const removed=s.fields.splice(idx,1)[0];
+        if(removed){
+          Object.keys(s.entries).forEach(d=>{ if(s.entries[d]) delete s.entries[d][removed.id]; });
+          if(s.settings.chart?.axis) delete s.settings.chart.axis[removed.id];
+        }
+        saveState(s); renderAll();
+      };
       top.appendChild(left); top.appendChild(del);
 
       const edit=document.createElement("div"); edit.className="row";
@@ -382,7 +431,6 @@
       return;
     }
 
-    // Desktop tabell
     let html = `<div class="table-wrap"><table><thead><tr><th>Dato</th>${
       visibleFields.map(f=>`<th>${escapeHtml(f.name)}</th>`).join("")
     }</tr></thead><tbody>`;
@@ -399,7 +447,6 @@
     html += `</tbody></table></div>`;
     tblWrap.innerHTML = html;
 
-    // Mobil kort
     last.forEach(d=>{
       const day = state.entries[d] || {};
       const card = document.createElement("div");
@@ -428,26 +475,83 @@
     el("kpiLatest").textContent= latest==="—" ? "—" : prettyDate(latest);
   }
 
-  /* ---------------- Graf (flere serier + sekundær y-akse) ---------------- */
+  /* ---------------- Graf (kun tall + aksestyring 100/10 + mapping) ---------------- */
   let chart;
-  function eligibleFields(){ return loadState().fields.filter(f=>f.type==="number"||f.type==="checkbox"); }
+  function numericFields(){ return loadState().fields.filter(f=>f.type==="number"); }
+  const themeMaps = {
+    nord:{theme:"nord", bg:"#2e3440", accent:"#88c0d0"},
+    dracula:{theme:"dracula", bg:"#282a36", accent:"#bd93f9"},
+    forest:{theme:"forest", bg:"#0b1310", accent:"#34d399"},
+    oceanic:{theme:"oceanic", bg:"#0a0f14", accent:"#22d3ee"},
+    latte:{theme:"latte", bg:"#f5f5f3", accent:"#0ea5e9"},
+    sunset:{theme:"sunset", bg:"#1a1110", accent:"#f97316"}
+  };
+  function heuristicAxisForName(name){
+    const n=(name||"").toLowerCase();
+    if(/score|%/.test(n)) return "y";     // 0–100
+    if(/time|min|timer/.test(n)) return "y1"; // 0–10
+    return "y";
+  }
+  function ensureAxisDefaults(fields){
+    const s=loadState(); const ax=s.settings.chart.axis||{};
+    const changed=[];
+    fields.forEach(f=>{
+      if(!(f.id in ax) && s.settings.chart.autoMap){
+        ax[f.id]=heuristicAxisForName(f.name);
+        changed.push(f.name+"→"+ax[f.id]);
+      }
+    });
+    s.settings.chart.axis=ax; saveState(s);
+    return changed;
+  }
+
   function renderChartControls(){
     const wrap = el("chartFields"); wrap.innerHTML = "";
-    const fields = eligibleFields();
-    if(!fields.length){ wrap.innerHTML = `<div class="muted">Ingen tall/checkbox-felt</div>`; return; }
+    const fields = numericFields();
+    const s=loadState();
+    if(!fields.length){ wrap.innerHTML = `<div class="muted">Ingen tallfelt</div>`; return; }
+
+    ensureAxisDefaults(fields);
+
     fields.forEach(f=>{
-      const id = "cf_"+f.id;
-      const div = document.createElement("label"); div.className="cf-item";
-      div.innerHTML = `<input type="checkbox" id="${id}" data-fid="${f.id}" checked> <span>${escapeHtml(f.name)}</span>`;
-      wrap.appendChild(div);
-      div.querySelector("input").addEventListener("change", renderChart);
+      const row = document.createElement("div"); row.className="cf-item";
+      row.innerHTML = `
+        <span>${escapeHtml(f.name)}</span>
+        <select data-fid="${f.id}" class="pill">
+          <option value="none">Skjul</option>
+          <option value="y">100 (venstre)</option>
+          <option value="y1">10 (høyre)</option>
+        </select>
+      `;
+      wrap.appendChild(row);
+      const sel=row.querySelector("select");
+      sel.value = (s.settings.chart.axis?.[f.id]) || "y";
+      sel.addEventListener("change", ()=>{
+        const st=loadState(); st.settings.chart.axis = {...(st.settings.chart.axis||{}), [f.id]: sel.value};
+        saveState(st); renderChart();
+      });
     });
-    el("cfAll").onclick = ()=>{ wrap.querySelectorAll('input[type="checkbox"]').forEach(c=>{ c.checked=true; }); renderChart(); };
-    el("cfNone").onclick = ()=>{ wrap.querySelectorAll('input[type="checkbox"]').forEach(c=>{ c.checked=false; }); renderChart(); };
+
+    // Toggles
+    el("autoMap").checked = !!s.settings.chart.autoMap;
+    el("autoMap").onchange = (e)=>{ const st=loadState(); st.settings.chart.autoMap = e.target.checked; saveState(st); if(e.target.checked){ ensureAxisDefaults(fields); renderChartControls(); } };
+    el("chartShowGoals").checked = !!s.settings.chart.showGoals;
+    el("chartShowGoals").onchange = (e)=>{ const st=loadState(); st.settings.chart.showGoals = e.target.checked; saveState(st); renderChart(); };
+
+    // Hurtigknapper
+    el("cfAll100").onclick = ()=>{ const st=loadState(); fields.forEach(f=> st.settings.chart.axis[f.id]="y"); saveState(st); renderChartControls(); renderChart(); };
+    el("cfAll10").onclick  = ()=>{ const st=loadState(); fields.forEach(f=> st.settings.chart.axis[f.id]="y1"); saveState(st); renderChartControls(); renderChart(); };
+    el("cfNone").onclick   = ()=>{ const st=loadState(); fields.forEach(f=> st.settings.chart.axis[f.id]="none"); saveState(st); renderChartControls(); renderChart(); };
+    el("cfAutoNow").onclick= ()=>{ const changed=ensureAxisDefaults(fields); renderChartControls(); renderChart(); if(changed.length) showToast("Auto-map: " + changed.join(", ")); };
   }
-  function getSelectedFieldIds(){
-    return Array.from(el("chartFields").querySelectorAll('input[type="checkbox"]:checked')).map(n=>n.getAttribute("data-fid"));
+
+  function selectedAxisMap(){
+    const s=loadState(); const map = new Map();
+    const ax=s.settings.chart.axis||{};
+    Object.keys(ax).forEach(fid=> map.set(fid, ax[fid]));
+    return map;
   }
+
   function groupKey(date, mode){
     const d=new Date(date+"T00:00:00");
     if(mode==="day") return prettyDate(date);
@@ -476,32 +580,28 @@
     const hue = (h + idx*137.508) % 360;
     return `hsl(${hue}deg 70% 55%)`;
   }
+
   function renderChart(){
     const state=loadState();
-    const selectedIds = getSelectedFieldIds();
+    const fields = numericFields();
+    const axisMap = selectedAxisMap();
     const range=el("chartRange").value, agg=el("chartAgg").value, groupSel=el("chartGroup").value;
     const [from,to]=computeDateRange(range);
     const entries = Object.entries(state.entries).filter(([d])=>d>=from && d<=to).sort(([a],[b])=>a.localeCompare(b));
     const grpMode = groupSel==="auto" ? inferGroup(range) : groupSel;
 
-    if(selectedIds.length===0){
-      const first = eligibleFields()[0];
-      if(!first){ drawEmpty(); return; }
-      selectedIds.push(first.id);
-      const n = el("chartFields").querySelector(`input[data-fid="${first.id}"]`); if(n) n.checked = true;
-    }
+    const chosen = fields.filter(f => (axisMap.get(f.id)||"none")!=="none");
+    if(chosen.length===0){ drawEmpty(true); return; }
 
-    // Samle grupperte data for alle serier
     const labelsSet = new Set();
-    const seriesStats = []; // {fid, name, groups:Map, max}
-    selectedIds.forEach((fid)=>{
-      const f = state.fields.find(x=>x.id===fid); if(!f) return;
+    const datasets = [];
+    const colorCache = new Map();
+
+    chosen.forEach((f, idx)=>{
       const rows = entries.map(([d,obj])=>{
-        const raw = obj?.[fid];
-        let val, has;
-        if(f.type==="checkbox"){ val = raw===true ? 1 : 0; has = true; }
-        else { if(raw===undefined || raw===null || raw===""){ val=0; has=false; } else { val=toNumber(raw); has=true; } }
-        return [d,val,has];
+        const raw = obj?.[f.id];
+        if(raw===undefined || raw===null || raw===""){ return [d, 0, false]; }
+        return [d, toNumber(raw), true];
       });
 
       const groups = new Map();
@@ -513,37 +613,38 @@
         if(has){ g.sum += v; g.count += 1; }
       }
       const labelsSorted = Array.from(labelsSet).sort((a,b)=>a.localeCompare(b));
-      let max = 0;
-      labelsSorted.forEach(k=>{
+      const data = labelsSorted.map(k=>{
         const g = groups.get(k) || {sum:0,count:0};
-        const val = (agg==="sum") ? g.sum : (g.count? g.sum/g.count : 0);
-        if(val>max) max=val;
+        return agg==="sum" ? g.sum : (g.count? g.sum/g.count : 0);
       });
-      seriesStats.push({ fid, name:f.name, groups, max });
+
+      const axis = axisMap.get(f.id) === "y1" ? "y1" : "y";
+      const color = stringColor(f.id, idx); colorCache.set(f.id, color);
+
+      datasets.push({
+        label: f.name + (axis==="y1" ? " (0–10)" : " (0–100)"),
+        data, tension:.3, fill:false, borderWidth:2, pointRadius:2,
+        borderColor: color, pointBackgroundColor: color,
+        yAxisID: axis
+      });
+
+      // Mål-linje (konstant serie) hvis aktivert og mål finnes
+      if(state.settings.chart.showGoals && typeof f.goal==="number" && isFinite(f.goal)){
+        const target = (axis==="y1" ? Math.min(Math.max(f.goal,0),10) : Math.min(Math.max(f.goal,0),100));
+        const tdata = labelsSorted.map(()=> target);
+        datasets.push({
+          label: `${f.name} mål`,
+          data: tdata,
+          borderDash:[6,6],
+          pointRadius:0,
+          borderWidth:1.5,
+          borderColor: color,
+          yAxisID: axis
+        });
+      }
     });
 
     const labels = Array.from(labelsSet).sort((a,b)=>a.localeCompare(b));
-    const globalMax = seriesStats.reduce((m,s)=>Math.max(m,s.max),0);
-    const smallMax = seriesStats.reduce((m,s)=> s.max>0 && s.max<m ? s.max : m, Number.POSITIVE_INFINITY);
-    const hasBig = globalMax >= 20; // heuristic
-    const hasSmall = smallMax <= 3;  // heuristic
-
-    const datasets = seriesStats.map((s, idx)=>{
-      const color = stringColor(s.fid, idx);
-      const data = labels.map(k=>{
-        const g = s.groups.get(k) || {sum:0,count:0};
-        return (agg==="sum") ? g.sum : (g.count? g.sum/g.count : 0);
-      });
-      // Auto-akse: små på y1 hvis det også finnes store
-      const useY1 = hasBig && s.max <= 3;
-      return {
-        label: s.name + (useY1 ? " (høyre akse)" : ""),
-        data, tension:.3, fill:false, borderWidth:2, pointRadius:2,
-        borderColor: color, pointBackgroundColor: color,
-        yAxisID: useY1 ? "y1" : "y"
-      };
-    });
-
     const ctx=el("chart").getContext("2d");
     if(chart) chart.destroy();
     chart=new Chart(ctx,{
@@ -553,15 +654,30 @@
         responsive:true,
         scales:{
           x:{ grid:{ color:"rgba(127,127,127,.15)"}, ticks:{ color:getTextColor() } },
-          y:{ beginAtZero:true, grid:{ color:"rgba(127,127,127,.15)"}, ticks:{ color:getTextColor() } },
-          y1:{ beginAtZero:true, position:"right", grid:{ drawOnChartArea:false }, ticks:{ color:getTextColor() } }
+          y:{ beginAtZero:true, min:0, max:100, grid:{ color:"rgba(127,127,127,.15)"}, ticks:{ color:getTextColor() } },
+          y1:{ beginAtZero:true, min:0, max:10, position:"right", grid:{ drawOnChartArea:false }, ticks:{ color:getTextColor() } }
         },
         plugins:{ legend:{ labels:{ color:getTextColor() } }, tooltip:{ mode:"index", intersect:false } }
       }
     });
   }
-  function drawEmpty(){ const ctx=el("chart").getContext("2d"); if(chart) chart.destroy(); chart=new Chart(ctx,{type:"line",data:{labels:[],datasets:[{label:"",data:[]}]},options:{}}); }
-  const getTextColor=()=>getComputedStyle(document.documentElement).getPropertyValue("--text").trim() || "#fff";
+
+  function drawEmpty(keepAxes=false){
+    const ctx=el("chart").getContext("2d");
+    if(chart) chart.destroy();
+    chart=new Chart(ctx,{
+      type:"line",
+      data:{labels:[], datasets:[]},
+      options:{
+        responsive:true,
+        scales: keepAxes ? {
+          x:{ grid:{ color:"rgba(127,127,127,.15)"}, ticks:{ color:getTextColor() } },
+          y:{ beginAtZero:true, min:0, max:100, grid:{ color:"rgba(127,127,127,.15)"}, ticks:{ color:getTextColor() } },
+          y1:{ beginAtZero:true, min:0, max:10, position:"right", grid:{ drawOnChartArea:false }, ticks:{ color:getTextColor() } }
+        } : {}
+      }
+    });
+  }
 
   /* ---------------- Kalender ---------------- */
   function addDays(iso,delta){ const d=new Date(iso+"T00:00:00"); d.setDate(d.getDate()+delta); return d.toLocaleDateString("sv-SE"); }
@@ -617,26 +733,21 @@
   /* ---------------- Tema UI ---------------- */
   function readSettings(){ return loadState().settings || defaultSettings(); }
   function writeSettings(mut){
-    const s=loadState(); s.settings={...s.settings, ...mut}; saveState(s); applyTheme(s.settings); renderChart(); // oppdater graf-farger
-    // Oppdater inputs
+    const s=loadState(); s.settings={...s.settings, ...mut};
+    // merge nested chart if partial update
+    if(mut.chart){ s.settings.chart = {...(loadState().settings.chart||defaultSettings().chart), ...mut.chart}; }
+    saveState(s); applyTheme(s.settings); renderChart();
     initThemeInputs();
   }
   function initThemeInputs(){
     const s = readSettings();
     el("bgColor").value = s.bg;
     el("accentColor").value = s.accent;
-    // Preview bruker CSS-variablene
   }
   document.querySelectorAll(".preset").forEach(btn=>{
     btn.addEventListener("click", ()=>{
       const p = btn.getAttribute("data-preset");
-      const map = {
-        dark:{theme:"dark", bg:"#0b0c10", accent:"#4f8cff"},
-        light:{theme:"light", bg:"#f7f7f9", accent:"#4f8cff"},
-        emerald:{theme:"emerald", bg:"#06110f", accent:"#10b981"},
-        solar:{theme:"solar", bg:"#0d0f10", accent:"#f59e0b"}
-      };
-      writeSettings(map[p] || defaultSettings());
+      writeSettings(themeMaps[p] || defaultSettings());
       showToast(`Tema satt: ${p}`);
     });
   });
@@ -650,6 +761,8 @@
     if(!name) return;
     const s=loadState();
     s.fields.push({ id:uid(), name, type, inProgress:!!inProg, goal:(type==="number" && goalRaw)? Number(goalRaw):null });
+    // gi ny default akse hvis tall og automap på
+    if(type==="number" && s.settings.chart.autoMap){ s.settings.chart.axis[s.fields[s.fields.length-1].id] = heuristicAxisForName(name); }
     saveState(s);
     el("fName").value=""; el("fGoal").value=""; el("fInProg").checked=true;
     renderAll(); showToast("Felt lagt til ✅");
@@ -662,12 +775,16 @@
     add("Trening","checkbox",null,true);
     add("Lest","checkbox",null,true);
     add("Skole","checkbox",null,true);
+    // autokartlegge for nye tallfelt
+    s.fields.filter(f=>f.type==="number").forEach(f=>{
+      if(!(f.id in s.settings.chart.axis) && s.settings.chart.autoMap){ s.settings.chart.axis[f.id]=heuristicAxisForName(f.name); }
+    });
     saveState(s); renderAll(); showToast("Forhåndsoppsett lagt til ✅");
   };
   el("resetAll").onclick=()=>{ if(!confirm("Slette alle felter og all data?")) return; localStorage.removeItem(LS_KEY); renderAll(); showToast("Alt slettet"); };
   el("save").onclick=()=>{
     const s=loadState(); const date=el("datePicker").value||todayISO(); const obj=s.entries[date]? {...s.entries[date]} : {};
-    document.querySelectorAll("[data-id]").forEach(node=>{ const id=node.getAttribute("data-id"); obj[id] = node.type==="checkbox" ? node.checked : node.value; });
+    document.querySelectorAll("[data-id]").forEach(node=>{ const id=node.getAttribute("data-id"); obj[id] = (node.type==="checkbox") ? node.checked : node.value; });
     s.entries[date]=obj; saveState(s);
     renderHistory(); renderKpi(); renderChart(); renderHearts(date);
     showToast("Lagret ✅");
@@ -675,8 +792,13 @@
   el("export").onclick=()=>{ const s=loadState(); const blob=new Blob([JSON.stringify(s,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="livstracker-export-v3.json"; a.click(); URL.revokeObjectURL(a.href); };
   el("importFile").addEventListener("change", async (e)=>{
     const file=e.target.files?.[0]; if(!file) return; const text=await file.text();
-    try{ const parsed=JSON.parse(text); if(!parsed.fields||!parsed.entries) throw new Error("Feil format");
-      parsed.settings ||= defaultSettings(); saveState(parsed); renderAll(); showToast("Importert ✅");
+    try{
+      const parsed=JSON.parse(text);
+      if(!parsed.fields||!parsed.entries) throw new Error("Feil format");
+      const base = defaultSettings();
+      parsed.settings = {...base, ...(parsed.settings||{})};
+      parsed.settings.chart = {...base.chart, ...(parsed.settings?.chart||{})};
+      saveState(parsed); renderAll(); showToast("Importert ✅");
     }catch{ showToast("Import feilet"); } finally{ e.target.value=""; }
   });
 
@@ -690,7 +812,7 @@
   el("nextDay").onclick=()=>{ const v=el("datePicker").value||todayISO(); el("datePicker").value=addDays(v,+1); updateDateUI(); };
   el("datePicker").addEventListener("change", updateDateUI);
   el("openCal").onclick=(e)=>{ e.stopPropagation(); openCal(); };
-  document.addEventListener("click",(e)=>{ if(!el("calPop").contains(e.target) && e.target!==el("openCal")) closeCal(); });
+  document.addEventListener("click",(e)=>{ const pop=el("calPop"); if(pop.style.display==="block" && !pop.contains(e.target) && e.target!==el("openCal")) pop.style.display="none"; });
 
   ["chartRange","chartAgg","chartGroup"].forEach(id=> el(id).addEventListener("change", renderChart));
 
