@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Min tracker</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; margin:24px; max-width:900px}
+    h1{margin:0 0 12px}
+    .row{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end}
+    input,select,button,textarea{padding:10px; font-size:14px}
+    button{cursor:pointer}
+    .card{border:1px solid #ddd; border-radius:12px; padding:14px; margin:12px 0}
+    .grid{display:grid; grid-template-columns: 1fr 1fr; gap:12px}
+    @media (max-width:700px){.grid{grid-template-columns:1fr}}
+    label{display:block; font-weight:600; margin-bottom:6px}
+    .small{color:#666; font-size:12px}
+    .danger{background:#ffecec; border:1px solid #ffb7b7}
+  </style>
+</head>
+<body>
+  <h1>Min tracker</h1>
+  <div class="small">Lagrer lokalt i nettleseren (ingen konto).</div>
+
+  <div class="card">
+    <h2 style="margin:0 0 10px">Legg til felt</h2>
+    <div class="row">
+      <div>
+        <label>Navn</label>
+        <input id="fName" placeholder="f.eks. Søvn (timer)" />
+      </div>
+      <div>
+        <label>Type</label>
+        <select id="fType">
+          <option value="text">Tekst</option>
+          <option value="number">Tall</option>
+          <option value="checkbox">Checkbox</option>
+          <option value="textarea">Lang tekst</option>
+        </select>
+      </div>
+      <button id="addField">Legg til</button>
+      <button id="resetAll" class="danger">Slett alt</button>
+    </div>
+    <div class="small" style="margin-top:8px">Tips: Lag felter som “Dagbok”, “Trening”, “Vann”, “Humør”, “Vekt”, osv.</div>
+  </div>
+
+  <div class="card">
+    <h2 style="margin:0 0 10px">Skjema</h2>
+    <div id="formArea" class="grid"></div>
+    <div class="row" style="margin-top:12px">
+      <button id="save">Lagre</button>
+      <button id="export">Eksporter JSON</button>
+      <input id="importFile" type="file" accept="application/json" />
+    </div>
+    <div id="status" class="small" style="margin-top:8px"></div>
+  </div>
+
+<script>
+  const LS_KEY = "my_tracker_v1";
+
+  const el = (id) => document.getElementById(id);
+
+  function loadState(){
+    try{
+      return JSON.parse(localStorage.getItem(LS_KEY)) || { fields: [], data: {} };
+    }catch{
+      return { fields: [], data: {} };
+    }
+  }
+  function saveState(state){
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+  }
+
+  function render(){
+    const state = loadState();
+    const form = el("formArea");
+    form.innerHTML = "";
+
+    state.fields.forEach((f, idx) => {
+      const wrap = document.createElement("div");
+      wrap.className = "card";
+      wrap.style.margin = "0";
+
+      const top = document.createElement("div");
+      top.className = "row";
+      top.style.justifyContent = "space-between";
+
+      const title = document.createElement("div");
+      title.innerHTML = `<div style="font-weight:700">${escapeHtml(f.name)}</div><div class="small">${f.type}</div>`;
+
+      const del = document.createElement("button");
+      del.textContent = "Fjern";
+      del.onclick = () => {
+        const s = loadState();
+        const removed = s.fields.splice(idx,1)[0];
+        if(removed) delete s.data[removed.id];
+        saveState(s);
+        render();
+      };
+
+      top.appendChild(title);
+      top.appendChild(del);
+
+      const field = document.createElement("div");
+      field.style.marginTop = "10px";
+
+      const val = state.data[f.id];
+
+      if(f.type === "text"){
+        field.innerHTML = `<label>${escapeHtml(f.name)}</label><input data-id="${f.id}" type="text" value="${escapeAttr(val ?? "")}" />`;
+      } else if(f.type === "number"){
+        field.innerHTML = `<label>${escapeHtml(f.name)}</label><input data-id="${f.id}" type="number" value="${escapeAttr(val ?? "")}" />`;
+      } else if(f.type === "checkbox"){
+        const checked = !!val;
+        field.innerHTML = `<label><input data-id="${f.id}" type="checkbox" ${checked ? "checked":""} /> ${escapeHtml(f.name)}</label>`;
+      } else {
+        field.innerHTML = `<label>${escapeHtml(f.name)}</label><textarea data-id="${f.id}" rows="4">${escapeHtml(val ?? "")}</textarea>`;
+      }
+
+      wrap.appendChild(top);
+      wrap.appendChild(field);
+      form.appendChild(wrap);
+    });
+  }
+
+  function escapeHtml(s){
+    return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
+  }
+  function escapeAttr(s){
+    return escapeHtml(s).replaceAll("\n","&#10;");
+  }
+  function uid(){
+    return "f_" + Math.random().toString(16).slice(2) + Date.now().toString(16);
+  }
+
+  el("addField").onclick = () => {
+    const name = el("fName").value.trim();
+    const type = el("fType").value;
+    if(!name) return;
+
+    const state = loadState();
+    state.fields.push({ id: uid(), name, type });
+    saveState(state);
+    el("fName").value = "";
+    render();
+  };
+
+  el("save").onclick = () => {
+    const state = loadState();
+    document.querySelectorAll("[data-id]").forEach(node => {
+      const id = node.getAttribute("data-id");
+      if(node.type === "checkbox") state.data[id] = node.checked;
+      else state.data[id] = node.value;
+    });
+    saveState(state);
+    el("status").textContent = "Lagret ✅";
+    setTimeout(()=> el("status").textContent="", 1200);
+  };
+
+  el("resetAll").onclick = () => {
+    localStorage.removeItem(LS_KEY);
+    render();
+    el("status").textContent = "Alt slettet.";
+    setTimeout(()=> el("status").textContent="", 1200);
+  };
+
+  el("export").onclick = () => {
+    const state = loadState();
+    const blob = new Blob([JSON.stringify(state,null,2)], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "tracker-export.json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  el("importFile").addEventListener("change", async (e) => {
+    const file = e.target.files?.[0];
+    if(!file) return;
+    const text = await file.text();
+    try{
+      const parsed = JSON.parse(text);
+      if(!parsed.fields || !parsed.data) throw new Error("Feil format");
+      saveState(parsed);
+      render();
+      el("status").textContent = "Importert ✅";
+      setTimeout(()=> el("status").textContent="", 1200);
+    }catch{
+      el("status").textContent = "Import feilet. Sjekk JSON.";
+      setTimeout(()=> el("status").textContent="", 2000);
+    }
+  });
+
+  render();
+</script>
+</body>
+</html>
